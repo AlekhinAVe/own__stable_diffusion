@@ -18,7 +18,7 @@ elif (torch.has_mps or torch.backends.mps.is_available()) and ALLOW_MPS:
 print(f"Using device: {DEVICE}")
 
 
-tokenizer = CLIPTokenizer("../data/vocab.json", merges_file="../data/merges.txt")
+#tokenizer = CLIPTokenizer("../data/vocab.json", merges_file="../data/merges.txt")
 
 
 #PROMPT
@@ -36,10 +36,13 @@ num_inference_steps = 50
 seed = 42
 
 #CREATE THE DATA
-path = 'C:/Users/Andrey/faces/faces'
+path = '/content/own__stable_diffusion/celebahq-resized-256x256/celeba_hq_256/'
 data = DATA(path)
+print('done')
 data.create_data()
+print('done')
 data.create_dataloader()
+print('done')
 
 #SET PARAMETERS OF TRAINING
 
@@ -54,7 +57,7 @@ train_from_scratch.train(
         seed=seed,
         device=DEVICE,
         idle_device="cpu",
-        tokenizer=tokenizer,
+        tokenizer=None,
         batch_size=64,
         epochs=1000,
         num_training_steps=1000
