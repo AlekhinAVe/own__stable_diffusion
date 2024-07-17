@@ -17,7 +17,7 @@ class DATA():
                 try:
                     sample = Image.open(os.path.join(self.path, obj))
                     self.data.append(sample)
-                    i+=0
+                    i+=1
                 except:
                     continue
             else:
