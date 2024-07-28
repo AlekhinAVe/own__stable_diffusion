@@ -35,6 +35,6 @@ class DATA():
         self.data = [data_transform(img) for img in self.data]
         #self.data = self.data[:100]
 
-    def create_dataloader(self, BATCH_SIZE=64):
+    def create_dataloader(self, BATCH_SIZE=1):
         self.load_transformed_dataset()
         self.data = DataLoader(self.data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
