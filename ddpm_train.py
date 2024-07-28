@@ -17,6 +17,8 @@ class DDPMTrainer:
 
         self.num_train_timesteps = num_training_steps
         self.timesteps = torch.from_numpy(np.arange(0, num_training_steps)[::-1].copy())
+        self.num_inference_steps = 50
+
 
     def _get_previous_timestep(self, timestep: int) -> int:
         prev_t = timestep - self.num_train_timesteps // self.num_inference_steps
