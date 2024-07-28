@@ -8,7 +8,8 @@ from clip import CLIP
 from diffusion import Diffusion
 from torchvision import transforms
 import gc
-
+from encoder import VAE_Encoder
+from decoder import VAE_Decoder
 
 WIDTH = 512
 HEIGHT = 512
@@ -51,7 +52,8 @@ def train(
 
     latents_shape = (batch_size, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
 
-    encoder = models["encoder"]
+    encoder = VAE_Encoder()
+    #encoder = models["encoder"]
     encoder.to(device)
 
     if checkpoint:
@@ -64,7 +66,8 @@ def train(
         # diffusion.load_state_dict(models["diffusion"])
         diffusion.to(device)
 
-    decoder = models["decoder"]
+    #decoder = models["decoder"]
+    decoder = VAE_Decoder()
     decoder.to(device)
 
     print('Model created')
@@ -138,24 +141,18 @@ def train(
             #loss.requires_grad = True
             loss.backward()
 
-            for name, param in diffusion.named_parameters():
-                print(f"Параметр {name} | requires_grad: {param.requires_grad} | Градиент: {param.grad}")
-
-            # for name, param in diffusion.named_parameters():
-            # if param.grad is not None:
-            # print(f"Градиент {name}: {param.grad.norm()}")
-            # else:
-            # print(f"Градиент {name}: None")
+            gc.collect()
+            torch.cuda.empty_cache()
 
             optimizer.step()
+
+            print('all_right')
 
             #new_weights = list(diffusion.parameters())
 
             #lists_equal = all(torch.equal(a, b) for a, b in zip(old_weights, new_weights))
             #print(f"Параметры изменились: {not lists_equal}")
 
-            #lists_equal = all(torch.equal(a, b) for a, b in zip(old_weights, new_weights))
-            #print(lists_equal)
 
         print(f"Epoch {epoch} | Loss: {loss.item()} ")
 
