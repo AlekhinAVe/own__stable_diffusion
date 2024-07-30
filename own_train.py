@@ -1,5 +1,5 @@
 import model_loader
-import train_from_scratch
+import solving_train
 from PIL import Image
 from pathlib import Path
 from transformers import CLIPTokenizer
@@ -18,8 +18,8 @@ elif (torch.has_mps or torch.backends.mps.is_available()) and ALLOW_MPS:
 print(f"Using device: {DEVICE}")
 
 
-#model_file = "../data/v1-5-pruned-emaonly.ckpt"
-#models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
+model_file = "../data/v1-5-pruned-emaonly.ckpt"
+models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
 #models = torch.load(model_file, DEVICE)
 
 #model_file_1 = "../data/model_checkpoint.ckpt"
@@ -45,7 +45,7 @@ num_inference_steps = 50
 seed = 42
 
 #CREATE THE DATA
-path = '/content/own__stable_diffusion/celebahq-resized-256x256/celeba_hq_256'
+path = 'C:/Users/Andrey/faces/faces'
 data = DATA(path)
 data.create_data()
 data.create_dataloader()
@@ -55,11 +55,11 @@ data.create_dataloader()
 batch_size = 1
 epochs = 20
 
-train_from_scratch.train(
+solving_train.train(
         prompt,
         data=data.data,
         strength=0.1,
-        models=None,
+        models=models,
         seed=seed,
         device=DEVICE,
         idle_device="cpu",
@@ -69,3 +69,4 @@ train_from_scratch.train(
         num_training_steps=200,
         checkpoint=False
 )
+
