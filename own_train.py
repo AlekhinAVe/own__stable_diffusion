@@ -1,5 +1,5 @@
 import model_loader
-import solving_train
+import train_from_scratch
 from PIL import Image
 from pathlib import Path
 from transformers import CLIPTokenizer
