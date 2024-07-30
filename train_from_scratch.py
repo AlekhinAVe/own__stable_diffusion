@@ -5,11 +5,10 @@ from ddpm_train import DDPMTrainer
 import torch.nn.functional as F
 from torch.optim import Adam
 from clip import CLIP
-from diffusion import Diffusion
+from own_diffusion_1 import Diffusion
 from torchvision import transforms
 import gc
-from encoder import VAE_Encoder
-from decoder import VAE_Decoder
+
 
 WIDTH = 512
 HEIGHT = 512
@@ -52,8 +51,7 @@ def train(
 
     latents_shape = (batch_size, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
 
-    encoder = VAE_Encoder()
-    #encoder = models["encoder"]
+    encoder = models["encoder"]
     encoder.to(device)
 
     if checkpoint:
@@ -66,8 +64,7 @@ def train(
         # diffusion.load_state_dict(models["diffusion"])
         diffusion.to(device)
 
-    #decoder = models["decoder"]
-    decoder = VAE_Decoder()
+    decoder = models["decoder"]
     decoder.to(device)
 
     print('Model created')
@@ -82,23 +79,10 @@ def train(
 
     optimizer = Adam(diffusion.parameters(), lr=0.001)
 
-    for param in encoder.parameters():
-        param.requires_grad = False
-
-    for param in decoder.parameters():
-        param.requires_grad = False
-
-    for param in diffusion.parameters():
-        param.requires_grad = True
-
     for epoch in range(epochs):
         print(f"Эпоха: {epoch}")
         diffusion.train()
         for step, batch in enumerate(data):
-
-            # Установка флага requires_grad для всех параметров модели diffusion
-            for param in diffusion.parameters():
-                param.requires_grad = True
 
             optimizer.zero_grad()
 
@@ -106,53 +90,31 @@ def train(
 
             batch = batch.cuda()
 
-            # (Batch_Size, 4, Latents_Height, Latents_Width)
-            encoder_noise = torch.randn(latents_shape, generator=generator, device=device)
+            # нулевой шум для кодирования целевых изображений
+            encoder_noise_zero = torch.zeros(latents_shape, device=device)
+            encoder_noise_zero = encoder_noise_zero.cuda()
 
-            encoder_noise = encoder_noise.cuda()
-
-            # (Batch_Size, 4, Latents_Height, Latents_Width)
-            with torch.no_grad():  # Не вычисляем градиенты для encoder
-                latents = encoder(batch_low, encoder_noise)
-
-            #old_weights = [param.clone() for param in diffusion.parameters()]
-
-            # Add noise to the latents (the encoded input image)
-            # (Batch_Size, 4, Latents_Height, Latents_Width)
             trainer.set_strength(strength=strength)
 
             to_idle(encoder)
 
-            timesteps = torch.randint(0, num_training_steps, (batch_size,), device=device).long()
-            noisy_samples, noise = trainer.add_noise(latents, timesteps)
-            noisy_samples = noisy_samples.to(device)
-            noise = noise.to(device)
-            time_embedding = get_time_embedding(timesteps, batch_size).to(device)
+            # (Batch_Size, 4, Latents_Height, Latents_Width)
+            with torch.no_grad():  # Не вычисляем градиенты для encoder
+                targets = encoder(batch, encoder_noise_zero)
+                timesteps = torch.randint(0, num_training_steps, (batch_size,), device=device).long()
+                noisy_samples, noise = trainer.add_noise(targets, timesteps)
+                noisy_samples = noisy_samples.to(device)
+                noise = noise.to(device)
+                latents = encoder(batch_low, noisy_samples)
+                time_embedding = get_time_embedding(timesteps, batch_size).to(device)
+
             model_output = diffusion(latents, context, time_embedding)
 
-            # with torch.no_grad():  # Не вычисляем градиенты для decoder
-            # output = decoder(model_output)
+            loss = F.mse_loss(noise, model_output)
 
-            loss = F.l1_loss(noise, model_output)
-
-            gc.collect()
-            torch.cuda.empty_cache()
-
-            #loss.requires_grad = True
             loss.backward()
 
-            gc.collect()
-            torch.cuda.empty_cache()
-
             optimizer.step()
-
-            print('all_right')
-
-            #new_weights = list(diffusion.parameters())
-
-            #lists_equal = all(torch.equal(a, b) for a, b in zip(old_weights, new_weights))
-            #print(f"Параметры изменились: {not lists_equal}")
-
 
         print(f"Epoch {epoch} | Loss: {loss.item()} ")
 
