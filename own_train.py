@@ -18,7 +18,7 @@ elif (torch.has_mps or torch.backends.mps.is_available()) and ALLOW_MPS:
 print(f"Using device: {DEVICE}")
 
 
-model_file = "../data/v1-5-pruned-emaonly.ckpt"
+model_file = "/content/drive/MyDrive/models/v1-5-pruned-emaonly.ckpt"
 models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
 #models = torch.load(model_file, DEVICE)
 
