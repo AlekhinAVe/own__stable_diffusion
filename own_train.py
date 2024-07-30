@@ -55,7 +55,7 @@ data.create_dataloader()
 batch_size = 1
 epochs = 20
 
-solving_train.train(
+train_from_scratch.train(
         prompt,
         data=data.data,
         strength=0.1,
