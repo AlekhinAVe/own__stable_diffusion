@@ -45,7 +45,7 @@ num_inference_steps = 50
 seed = 42
 
 #CREATE THE DATA
-path = 'C:/Users/Andrey/faces/faces'
+path = '/content/own__stable_diffusion/celebahq-resized-256x256/celeba_hq_256'
 data = DATA(path)
 data.create_data()
 data.create_dataloader()
