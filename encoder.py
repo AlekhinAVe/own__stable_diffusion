@@ -81,7 +81,7 @@ class VAE_Encoder(nn.Sequential):
                 # (Batch_Size, Channel, Height, Width) -> (Batch_Size, Channel, Height + Padding_Top + Padding_Bottom, Width + Padding_Left + Padding_Right) = (Batch_Size, Channel, Height + 1, Width + 1)
                 x = F.pad(x, (0, 1, 0, 1))
 
-            module.to("device")
+            module.to("cuda")
             x = module(x)
         # (Batch_Size, 8, Height / 8, Width / 8) -> two tensors of shape (Batch_Size, 4, Height / 8, Width / 8)
         mean, log_variance = torch.chunk(x, 2, dim=1)
