@@ -1,12 +1,10 @@
 import model_loader
 import solving_train
-import sr_training
 from PIL import Image
 from pathlib import Path
 from transformers import CLIPTokenizer
 import torch
 from data import DATA
-import train_decoder
 
 DEVICE = "cpu"
 
@@ -20,7 +18,7 @@ elif (torch.has_mps or torch.backends.mps.is_available()) and ALLOW_MPS:
 print(f"Using device: {DEVICE}")
 
 
-model_file = "../data/v1-5-pruned-emaonly.ckpt"
+model_file = "/content/drive/MyDrive/models/v1-5-pruned-emaonly.ckpt"
 models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
 #models = torch.load(model_file, DEVICE)
 
@@ -47,7 +45,7 @@ num_inference_steps = 1000
 seed = 42
 
 #CREATE THE DATA
-path = 'C:/Users/Andrey/faces/faces'
+path = '/content/celebahq-resized-256x256'
 data = DATA(path)
 data.create_data()
 data.create_dataloader()
@@ -71,3 +69,4 @@ solving_train.train(
         num_training_steps=1000,
         checkpoint=False
 )
+
