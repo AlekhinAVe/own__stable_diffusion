@@ -2,6 +2,10 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from ddpm import DDPMSampler
+from diffusion import Diffusion
+from pre_diffusion import Network
+from simple_unet import SimpleUnet
+from sr_unet import UNet
 
 WIDTH = 512
 HEIGHT = 512
@@ -22,6 +26,8 @@ def generate(
     device=None,
     idle_device=None,
     tokenizer=None,
+    checkpoint_1=False,
+    checkpoint_2=False
 ):
     with torch.no_grad():
         if not 0 < strength <= 1:
@@ -59,16 +65,16 @@ def generate(
             uncond_tokens = torch.tensor(uncond_tokens, dtype=torch.long, device=device)
             # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
             uncond_context = clip(uncond_tokens)
-            # (Batch_Size, Seq_Len, Dim) + (Batch_Size, Seq_Len, Dim) -> (2 * Batch_Size, Seq_Len, Dim)
+            #(Batch_Size, Seq_Len, Dim) + (Batch_Size, Seq_Len, Dim) -> (2 * Batch_Size, Seq_Len, Dim)
             context = torch.cat([cond_context, uncond_context])
         else:
             # Convert into a list of length Seq_Len=77
             tokens = tokenizer.batch_encode_plus(
                 [prompt], padding="max_length", max_length=77
             ).input_ids
-            # (Batch_Size, Seq_Len)
+            #(Batch_Size, Seq_Len)
             tokens = torch.tensor(tokens, dtype=torch.long, device=device)
-            # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
+            #(Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
             context = clip(tokens)
         to_idle(clip)
 
@@ -98,9 +104,15 @@ def generate(
 
             input_image_tensor = input_image_tensor.cuda()
 
+            print(input_image_tensor.shape)
+
             # (Batch_Size, 4, Latents_Height, Latents_Width)
             encoder_noise = torch.randn(latents_shape, generator=generator, device=device)
             encoder_noise = encoder_noise.cuda()
+
+            ##
+            gen_img = torch.randn(latents_shape, generator=generator, device=device)
+            gen_img = gen_img.cuda()
 
             # (Batch_Size, 4, Latents_Height, Latents_Width)
             latents = encoder(input_image_tensor, encoder_noise)
@@ -108,45 +120,56 @@ def generate(
             # Add noise to the latents (the encoded input image)
             # (Batch_Size, 4, Latents_Height, Latents_Width)
             sampler.set_strength(strength=strength)
-            latents = sampler.add_noise(latents, sampler.timesteps[0])
+            #latents = sampler.add_noise(latents, sampler.timesteps[0])
 
             to_idle(encoder)
         else:
             # (Batch_Size, 4, Latents_Height, Latents_Width)
             latents = torch.randn(latents_shape, generator=generator, device=device)
 
-        diffusion = models["diffusion"]
-        diffusion.to(device)
+        #network = Network().to(device)
+        #network.load_state_dict(checkpoint_1['model_state_dict'])
+
+        if checkpoint_2:
+            diffusion = UNet()
+            diffusion.load_state_dict(checkpoint_2['model_state_dict'])
+            diffusion.to(device)
+        else:
+            diffusion = models["diffusion"]
 
         timesteps = tqdm(sampler.timesteps)
+
         for i, timestep in enumerate(timesteps):
             # (1, 320)
             time_embedding = get_time_embedding(timestep).to(device)
 
-            # (Batch_Size, 4, Latents_Height, Latents_Width)
-            model_input = latents
+            ## (Batch_Size, 4, Latents_Height, Latents_Width)
+            #model_input = network(gen_img, latents)
+
+            model_input = torch.cat([gen_img, latents], dim=1)
 
             if do_cfg:
                 # (Batch_Size, 4, Latents_Height, Latents_Width) -> (2 * Batch_Size, 4, Latents_Height, Latents_Width)
                 model_input = model_input.repeat(2, 1, 1, 1)
 
+            t = torch.full((1,), timestep, device=device, dtype=torch.long)
             # model_output is the predicted noise
             # (Batch_Size, 4, Latents_Height, Latents_Width) -> (Batch_Size, 4, Latents_Height, Latents_Width)
-            model_output = diffusion(model_input, context, time_embedding)
+            model_output = diffusion(model_input, t)
 
             if do_cfg:
                 output_cond, output_uncond = model_output.chunk(2)
                 model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
 
             # (Batch_Size, 4, Latents_Height, Latents_Width) -> (Batch_Size, 4, Latents_Height, Latents_Width)
-            latents = sampler.step(timestep, latents, model_output)
+            #gen_img = sampler.step(timestep, gen_img, model_output)
 
         to_idle(diffusion)
 
         decoder = models["decoder"]
         decoder.to(device)
         # (Batch_Size, 4, Latents_Height, Latents_Width) -> (Batch_Size, 3, Height, Width)
-        images = decoder(latents)
+        images = decoder(gen_img)
         to_idle(decoder)
 
         images = rescale(images, (-1, 1), (0, 255), clamp=True)
@@ -155,6 +178,7 @@ def generate(
         images = images.to("cpu", torch.uint8).numpy()
         return images[0]
     
+
 def rescale(x, old_range, new_range, clamp=False):
     old_min, old_max = old_range
     new_min, new_max = new_range
